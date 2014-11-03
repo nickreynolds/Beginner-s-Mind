@@ -228,7 +228,7 @@ public class CalibCamera : MonoBehaviour, IGazeListener, ICalibrationProcessHand
 
             if (GazeManager.Instance.IsCalibrated && !GazeManager.Instance.IsCalibrating)
             {
-                String btnText = "Start GazeCam";
+                String btnText = "Start Game";
 
                 if (GUI.Button(new Rect(x + btnPadding, y + btnPadding, btnWidth, btnHeight), btnText))
                 {

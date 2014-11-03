@@ -71,14 +71,14 @@ public class GazeCamera : MonoBehaviour, IGazeListener
                 (float)tx,
                 (float)ty,
                 (float)(baseDist + depthMod));
-            cam.transform.position = newPos;
+          //  cam.transform.position = newPos;
 
             //camera 'look at' origo
-            cam.transform.LookAt(Vector3.zero);
+          //  cam.transform.LookAt(Vector3.zero);
 
             //tilt cam according to eye angle
             double angle = gazeUtils.GetLastValidEyesAngle();
-            cam.transform.eulerAngles = new Vector3(cam.transform.eulerAngles.x, cam.transform.eulerAngles.y, cam.transform.eulerAngles.z + (float)angle);
+          //  cam.transform.eulerAngles = new Vector3(cam.transform.eulerAngles.x, cam.transform.eulerAngles.y, cam.transform.eulerAngles.z + (float)angle);
         }
 
         Point2D gazeCoords = gazeUtils.GetLastValidSmoothedGazeCoordinates();
@@ -114,15 +114,27 @@ public class GazeCamera : MonoBehaviour, IGazeListener
         RaycastHit hit;
         if (Physics.Raycast(collisionRay, out hit))
         {
-            if (null != hit.collider && currentHit != hit.collider)
+            if (null != hit.collider) // && currentHit != hit.collider)
             {
-                //switch colors of cubes according to collision state
-                if (null != currentHit)
-                    currentHit.renderer.material.color = Color.white;
-                currentHit = hit.collider;
-                currentHit.renderer.material.color = Color.red;
+				if (hit.collider.gameObject.GetComponent<CameraOperator>() != null)
+				{
+	                
+					//we switched colliders, so stop old collider
+	                if (null != currentHit && currentHit != hit.collider)
+					{
+						currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
+						hit.collider.gameObject.GetComponent<CameraOperator>().beginAttaching(this.gameObject);
+						currentHit = hit.collider;
+					}
+				}
             }
+			else if (currentHit != null)
+			{
+				currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
+				currentHit = null;
+			}
         }
+
     }
 
     void OnGUI()
