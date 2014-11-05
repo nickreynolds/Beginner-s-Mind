@@ -19,6 +19,8 @@ using Assets.Scripts;
 /// </summary>
 public class GazeCamera : MonoBehaviour, IGazeListener
 {
+	public bool useMouseInput;
+
     private Camera cam;
 
     private double eyesDistance;
@@ -40,6 +42,8 @@ public class GazeCamera : MonoBehaviour, IGazeListener
         baseDist = cam.transform.position.z;
         gazeIndicator = cam.transform.GetChild(0);
 
+//		Debug.LogWarning("initialize gazeUtils");
+
         //initialising GazeData stabilizer
         gazeUtils = new GazeDataValidator(30);
 
@@ -55,48 +59,58 @@ public class GazeCamera : MonoBehaviour, IGazeListener
 
     void Update()
     {
-        Point2D userPos = gazeUtils.GetLastValidUserPosition();
+		if (useMouseInput)
+		{
+			
+			Vector3 mousePos = Input.mousePosition;
+			checkGazeCollision(mousePos);
+		}
+		else
+		{
+	//		Debug.LogWarning("using gazeutils");
+	        Point2D userPos = gazeUtils.GetLastValidUserPosition();
 
-        if (null != userPos)
-        {
-            //mapping cam panning to 3:2 aspect ratio
-            double tx = (userPos.X * 5) - 2.5f;
-            double ty = (userPos.Y * 3) - 1.5f;
+	        if (null != userPos)
+	        {
+	            //mapping cam panning to 3:2 aspect ratio
+	            double tx = (userPos.X * 5) - 2.5f;
+	            double ty = (userPos.Y * 3) - 1.5f;
 
-            //position camera X-Y plane and adjust distance
-            eyesDistance = gazeUtils.GetLastValidUserDistance();
-            depthMod = 2 * eyesDistance;
+	            //position camera X-Y plane and adjust distance
+	            eyesDistance = gazeUtils.GetLastValidUserDistance();
+	            depthMod = 2 * eyesDistance;
 
-            Vector3 newPos = new Vector3(
-                (float)tx,
-                (float)ty,
-                (float)(baseDist + depthMod));
-          //  cam.transform.position = newPos;
+	            Vector3 newPos = new Vector3(
+	                (float)tx,
+	                (float)ty,
+	                (float)(baseDist + depthMod));
+	          //  cam.transform.position = newPos;
 
-            //camera 'look at' origo
-          //  cam.transform.LookAt(Vector3.zero);
+	            //camera 'look at' origo
+	          //  cam.transform.LookAt(Vector3.zero);
 
-            //tilt cam according to eye angle
-            double angle = gazeUtils.GetLastValidEyesAngle();
-          //  cam.transform.eulerAngles = new Vector3(cam.transform.eulerAngles.x, cam.transform.eulerAngles.y, cam.transform.eulerAngles.z + (float)angle);
-        }
+	            //tilt cam according to eye angle
+	            double angle = gazeUtils.GetLastValidEyesAngle();
+	          //  cam.transform.eulerAngles = new Vector3(cam.transform.eulerAngles.x, cam.transform.eulerAngles.y, cam.transform.eulerAngles.z + (float)angle);
+	        }
 
-        Point2D gazeCoords = gazeUtils.GetLastValidSmoothedGazeCoordinates();
+	        Point2D gazeCoords = gazeUtils.GetLastValidSmoothedGazeCoordinates();
 
-        if (null != gazeCoords)
-        {
-            //map gaze indicator
-            Point2D gp = UnityGazeUtils.getGazeCoordsToUnityWindowCoords(gazeCoords);
+	        if (null != gazeCoords)
+	        {
+	            //map gaze indicator
+	            Point2D gp = UnityGazeUtils.getGazeCoordsToUnityWindowCoords(gazeCoords);
 
-            Vector3 screenPoint = new Vector3((float)gp.X, (float)gp.Y, cam.nearClipPlane + .1f);
+	            Vector3 screenPoint = new Vector3((float)gp.X, (float)gp.Y, cam.nearClipPlane + .1f);
 
-            Vector3 planeCoord = cam.ScreenToWorldPoint(screenPoint);
-            gazeIndicator.transform.position = planeCoord;
+	            Vector3 planeCoord = cam.ScreenToWorldPoint(screenPoint);
+	            gazeIndicator.transform.position = planeCoord;
+	            //handle collision detection
 
-            //handle collision detection
-            checkGazeCollision(screenPoint);
-        }
+	         	checkGazeCollision(screenPoint);
 
+			}
+		}
         //handle keypress
         if (Input.GetKey(KeyCode.Escape))
         {
@@ -126,17 +140,29 @@ public class GazeCamera : MonoBehaviour, IGazeListener
 						hit.collider.gameObject.GetComponent<CameraOperator>().beginAttaching(this.gameObject);
 						currentHit = hit.collider;
 					}
+					else if (currentHit == null)
+					{
+						hit.collider.gameObject.GetComponent<CameraOperator>().beginAttaching(this.gameObject);
+						currentHit = hit.collider;
+					}
 				}
             }
 			else if (currentHit != null)
 			{
+
 				currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
 				currentHit = null;
 			}
-        }
-
-    }
-
+		}
+		else if (currentHit != null)
+		{
+			
+			currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
+			currentHit = null;
+		}
+		
+	}
+	
     void OnGUI()
     {
         int padding = 10;
