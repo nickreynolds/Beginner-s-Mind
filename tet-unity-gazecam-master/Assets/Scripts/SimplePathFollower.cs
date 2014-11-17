@@ -11,7 +11,10 @@ public class SimplePathFollower : CameraOperator
 	void Start()
 	{
 		AIPath ai = gameObject.GetComponent<AIPath>();
-		ai.target = path[index];
+		if (path != null && path.Count > 0)
+		{
+			ai.target = path[index];
+		}
 	}
 
 	public void handleTrigger(Transform other) 
