@@ -10,6 +10,11 @@ public class SimplePathFollower : CameraOperator
 
 	void Start()
 	{
+		doStart();
+	}
+
+	public void doStart()
+	{
 		AIPath ai = gameObject.GetComponent<AIPath>();
 		if (path != null && path.Count > 0)
 		{

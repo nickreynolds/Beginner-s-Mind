@@ -54,11 +54,16 @@ public class CameraOperator : MonoBehaviour
 	{
 		Debug.LogWarning("attach it");
 		camera.transform.parent = cameraHolder.transform;
+		iTween.RotateTo(camera, iTween.Hash("rotation", CAMERA_LOCAL_ROTATION.eulerAngles, "islocal", true, "time", 2.0f));
 		iTween.MoveTo(camera, iTween.Hash("position", CAMERA_LOCAL_POSITION, "islocal", true, "time", 2.0f));
 		//camera.transform.localPosition = CAMERA_LOCAL_POSITION;
-		//iTween.RotateTo(camera, iTween.Hash("rotation", CAMERA_LOCAL_ROTATION, "islocal", true, "time", 2.0f));
-		camera.transform.localRotation = CAMERA_LOCAL_ROTATION;
-		
+		//camera.transform.localRotation = CAMERA_LOCAL_ROTATION;
+
+		if (cameraHolder.GetComponentInParent<SetPathWhenControlled>() != null)
+		{
+			cameraHolder.GetComponentInParent<SetPathWhenControlled>().setPath();
+		}
+
 		camera = null;
 		holdStartTime = 0.0f;
 		indicatorSphere.SetActive(false);
