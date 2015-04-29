@@ -25,7 +25,7 @@ public class SimplePathFollower : CameraOperator
 	public void handleTrigger(Transform other) 
 	{
 		Debug.Log("trigger enter");
-		if (other == path[index])
+		if (index < path.Count && other == path[index])
 		{
 			AIPath ai = gameObject.GetComponent<AIPath>();
 			index++;
@@ -34,7 +34,14 @@ public class SimplePathFollower : CameraOperator
 				index = 0;
 			}
 
-			ai.target = path[index];
+			if (index < path.Count)
+			{
+				ai.target = path[index];
+			}
+			else
+			{
+				ai.target = null;
+			}
 		}
 	}
 }

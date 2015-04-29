@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class CameraOperator : MonoBehaviour 
+public class CameraOperator : EntityThatActionsWhenLookedAt 
 {	
 	public GameObject cameraHolder;
 	private GameObject camera;
@@ -9,7 +9,7 @@ public class CameraOperator : MonoBehaviour
 	public Vector3 CAMERA_LOCAL_POSITION = new Vector3(0.0f,0.0f,0.0f);
 	public Quaternion CAMERA_LOCAL_ROTATION = Quaternion.identity;
 	public float HOLD_LENGTH = 3.0f;
-	private float holdStartTime = 0.0f;
+	protected float holdStartTime = 0.0f;
 
 	// Use this for initialization
 	void Awake () 
@@ -34,23 +34,23 @@ public class CameraOperator : MonoBehaviour
 		}
 	}
 
-	public void beginAttaching(GameObject camera)
+	public override void beginAction(GameObject camera)
 	{
-		Debug.LogWarning("begin attaching");
+		Debug.LogWarning("begin attaching camera to this operator");
 		this.camera = camera;
 		holdStartTime = Time.time;
 		indicatorSphere.SetActive(true);
 	}
 
-	public void stopAttaching()
+	public override void stopAction()
 	{
-		Debug.LogWarning("stop attaching");
+		Debug.LogWarning("stop attaching camera to this operator");
 		camera = null;
 		holdStartTime = 0.0f;
 		indicatorSphere.SetActive(false);
 	}
 
-	public void attachCamera()
+	protected void attachCamera()
 	{
 		Debug.LogWarning("attach it");
 		camera.transform.parent = cameraHolder.transform;

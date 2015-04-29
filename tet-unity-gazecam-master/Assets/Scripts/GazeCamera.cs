@@ -130,19 +130,19 @@ public class GazeCamera : MonoBehaviour, IGazeListener
         {
             if (null != hit.collider) // && currentHit != hit.collider)
             {
-				if (hit.collider.gameObject.GetComponent<CameraOperator>() != null)
+				if (hit.collider.gameObject.GetComponent<EntityThatActionsWhenLookedAt>() != null)
 				{
 	                
 					//we switched colliders, so stop old collider
 	                if (null != currentHit && currentHit != hit.collider)
 					{
-						currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
-						hit.collider.gameObject.GetComponent<CameraOperator>().beginAttaching(this.gameObject);
+						currentHit.gameObject.GetComponent<EntityThatActionsWhenLookedAt>().stopAction();
+						hit.collider.gameObject.GetComponent<EntityThatActionsWhenLookedAt>().beginAction(this.gameObject);
 						currentHit = hit.collider;
 					}
 					else if (currentHit == null)
 					{
-						hit.collider.gameObject.GetComponent<CameraOperator>().beginAttaching(this.gameObject);
+						hit.collider.gameObject.GetComponent<EntityThatActionsWhenLookedAt>().beginAction(this.gameObject);
 						currentHit = hit.collider;
 					}
 				}
@@ -150,14 +150,14 @@ public class GazeCamera : MonoBehaviour, IGazeListener
 			else if (currentHit != null)
 			{
 
-				currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
+				currentHit.gameObject.GetComponent<EntityThatActionsWhenLookedAt>().stopAction();
 				currentHit = null;
 			}
 		}
 		else if (currentHit != null)
 		{
 			
-			currentHit.gameObject.GetComponent<CameraOperator>().stopAttaching();
+			currentHit.gameObject.GetComponent<EntityThatActionsWhenLookedAt>().stopAction();
 			currentHit = null;
 		}
 		
