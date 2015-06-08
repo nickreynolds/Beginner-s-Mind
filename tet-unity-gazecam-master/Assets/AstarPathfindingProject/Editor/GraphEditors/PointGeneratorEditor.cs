@@ -68,7 +68,8 @@ namespace Pathfinding {
 			//if ( fade.Show () ) {
 			if ( graph.raycast ) {
 				EditorGUI.indentLevel++;
-				
+
+				graph.use2DPhysics = EditorGUILayout.Toggle (new GUIContent ("Use 2D Physics", "If enabled, all raycasts will use the Unity 2D Physics API instead of the 3D one."), graph.use2DPhysics);
 			 	graph.thickRaycast = EditorGUILayout.Toggle (new GUIContent ("Thick Raycast","A thick raycast checks along a thick line with radius instead of just along a line"),graph.thickRaycast);
 			 	
 			 	//editor.GUILayoutx.BeginFadeArea (graph.thickRaycast,"thickRaycast");
@@ -91,7 +92,7 @@ namespace Pathfinding {
 			PointGraph graph = target as PointGraph;
 			
 			//Debug.Log ("Gizmos "+(graph == null)+" "+target);
-			if (graph == null || !graph.active.showNavGraphs) {
+			if (graph == null || graph.active == null || !graph.active.showNavGraphs) {
 				return;
 			}
 			
@@ -101,8 +102,7 @@ namespace Pathfinding {
 			
 			if (graph.root != null) {
 				DrawChildren (graph, graph.root);
-			} else {
-				
+			} else if (!string.IsNullOrEmpty (graph.searchTag)) {
 				GameObject[] gos = GameObject.FindGameObjectsWithTag (graph.searchTag);
 				for (int i=0;i<gos.Length;i++) {
 					Gizmos.DrawCube (gos[i].transform.position,Vector3.one*HandleUtility.GetHandleSize(gos[i].transform.position)*0.1F);

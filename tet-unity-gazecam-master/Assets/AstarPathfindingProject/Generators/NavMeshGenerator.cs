@@ -1,5 +1,3 @@
-//#define ASTARDEBUG    //Some debugging
-//#define ASTAR_NO_JSON
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,17 +5,9 @@ using Pathfinding.Serialization.JsonFx;
 using Pathfinding.Serialization;
 using Pathfinding;
 
-
 namespace Pathfinding {
 	public interface INavmesh {
-		
-		//TriangleMeshNode[] TriNodes {get;}
 		void GetNodes(GraphNodeDelegateCancelable del);
-		
-		//Int3[] originalVertices {
-		//	get;
-		//	set;
-		//}
 	}
 	
 	[System.Serializable]
@@ -36,33 +26,28 @@ and have a low memory footprint because of their smaller size to describe the sa
 	 */
 	public class NavMeshGraph : NavGraph, INavmesh, IUpdatableGraph, IFunnelGraph, INavmeshHolder
 	{
-		
-		public override void CreateNodes (int number) {
-			TriangleMeshNode[] tmp = new TriangleMeshNode[number];
-			for (int i=0;i<number;i++) {
-				tmp[i] = new TriangleMeshNode (active);
-				tmp[i].Penalty = initialPenalty;
-			}
-		}
-		
+		/** Mesh to construct navmesh from */
 		[JsonMember]
-		public Mesh sourceMesh; /**< Mesh to construct navmesh from */
-		
+		public Mesh sourceMesh;
+
+		/** Offset in world space */
 		[JsonMember]
-		public Vector3 offset; /**< Offset in world space */
-		
+		public Vector3 offset;
+
+		/** Rotation in degrees */
 		[JsonMember]
-		public Vector3 rotation; /**< Rotation in degrees */
-		
+		public Vector3 rotation;
+
+		/** Scale of the graph */
 		[JsonMember]
-		public float scale = 1; /**< Scale of the graph */
+		public float scale = 1;
 		
-		[JsonMember]
 		/** More accurate nearest node queries.
 		 * When on, looks for the closest point on every triangle instead of if point is inside the node triangle in XZ space.
 		 * This is slower, but a lot better if your mesh contains overlaps (e.g bridges over other areas of the mesh).
 		 * Note that for maximum effect the Full Get Nearest Node Search setting should be toggled in A* Inspector Settings.
 		 */
+		[JsonMember]
 		public bool accurateNearestNode = true;
 		
 		public TriangleMeshNode[] nodes;
@@ -119,32 +104,25 @@ and have a low memory footprint because of their smaller size to describe the sa
 		[System.NonSerialized]
 		Vector3[] originalVertices;
 		
-		/*public Int3[] originalVertices {
-			get { 	return _originalVertices; 	}
-			set { 	_originalVertices = value;	}
-		}*/
-		
 		[System.NonSerialized]
 		public int[] triangles;
 		
 		public void GenerateMatrix () {
-			
 			SetMatrix (Matrix4x4.TRS (offset,Quaternion.Euler (rotation),new Vector3 (scale,scale,scale)));
 			
 		}
 		
-		/** Relocates the nodes to match the newMatrix.
-		 * The "oldMatrix" variable can be left out in this function call (only for this graph generator) since it is not used */
+		/** Transforms the nodes using newMatrix from their initial positions.
+		 * The "oldMatrix" variable can be left out in this function call (only for this graph generator)
+		 * since the information can be taken from other saved data, which gives better precision.
+		 */
 		public override void RelocateNodes (Matrix4x4 oldMatrix, Matrix4x4 newMatrix) {
-			//base.RelocateNodes (oldMatrix,newMatrix);
 			
 			if (vertices == null || vertices.Length == 0 || originalVertices == null || originalVertices.Length != vertices.Length) {
 				return;
 			}
 			
 			for (int i=0;i<_vertices.Length;i++) {
-				//Vector3 tmp = inv.MultiplyPoint3x4 (vertices[i]);
-				//vertices[i] = (Int3)newMatrix.MultiplyPoint3x4 (tmp);
 				_vertices[i] = (Int3)newMatrix.MultiplyPoint3x4 ((Vector3)originalVertices[i]);
 			}
 			
@@ -160,7 +138,8 @@ and have a low memory footprint because of their smaller size to describe the sa
 			}
 			
 			SetMatrix (newMatrix);
-			
+
+			RebuildBBTree (this);
 		}
 	
 		public static NNInfo GetNearest (NavMeshGraph graph, GraphNode[] nodes, Vector3 position, NNConstraint constraint, bool accurateNearestNode) {
@@ -350,7 +329,7 @@ and have a low memory footprint because of their smaller size to describe the sa
 		public void UpdateAreaInit (GraphUpdateObject o) {}
 		
 		public void UpdateArea (GraphUpdateObject o) {
-			
+			UpdateArea (o, this);
 		}
 		
 		
@@ -368,12 +347,7 @@ and have a low memory footprint because of their smaller size to describe the sa
 				Mathf.FloorToInt(bounds.max.x*Int3.Precision),
 				Mathf.FloorToInt(bounds.max.z*Int3.Precision)
 			);
-			
-			/*Vector3 a = new Vector3 (r.xMin,0,r.yMin);//	-1 	-1
-			Vector3 b = new Vector3 (r.xMin,0,r.yMax);//	-1	 1 
-			Vector3 c = new Vector3 (r.xMax,0,r.yMin);//	 1 	-1
-			Vector3 d = new Vector3 (r.xMax,0,r.yMax);//	 1 	 1
-			*/
+
 			Int3 a = new Int3(r2.xmin,0,r2.ymin);
 			Int3 b = new Int3(r2.xmin,0,r2.ymax);
 			Int3 c = new Int3(r2.xmax,0,r2.ymin);
@@ -412,11 +386,6 @@ and have a low memory footprint because of their smaller size to describe the sa
 					if (vert.x > r.xMax) allRight++;
 					if (vert.z < r.yMin) allTop++;
 					if (vert.z > r.yMax) allBottom++;
-					
-					//if (!bounds.Contains (node[v]) {
-					//	inside = false;
-					//	break;
-					//}
 				}
 				if (!inside) {
 					if (allLeft == 3 || allRight == 3 || allTop == 3 || allBottom == 3) {
@@ -528,7 +497,7 @@ and have a low memory footprint because of their smaller size to describe the sa
 		}
 		
 		/** Generates a navmesh. Based on the supplied vertices and triangles. Memory usage is about O(n) */
-		public void GenerateNodes (Vector3[] vectorVertices, int[] triangles, out Vector3[] originalVertices, out Int3[] vertices) {
+		void GenerateNodes (Vector3[] vectorVertices, int[] triangles, out Vector3[] originalVertices, out Int3[] vertices) {
 			
 			Profiler.BeginSample ("Init");
 
@@ -607,11 +576,17 @@ and have a low memory footprint because of their smaller size to describe the sa
 			//graph.CreateNodes (triangles.Length/3);//new Node[triangles.Length/3];
 			nodes = new TriangleMeshNode[triangles.Length/3];
 			
+			int graphIndex = active.astarData.GetGraphIndex(this); 
+
+			// Does not have to set this, it is set in ScanInternal
+			//TriangleMeshNode.SetNavmeshHolder ((int)graphIndex,this);
+
 			for (int i=0;i<nodes.Length;i++) {
 				
 				nodes[i] = new TriangleMeshNode(active);
 				TriangleMeshNode node = nodes[i];//new MeshNode ();
 				
+				node.GraphIndex = (uint)graphIndex;
 				node.Penalty = initialPenalty;
 				node.Walkable = true;
 				
@@ -765,7 +740,7 @@ and have a low memory footprint because of their smaller size to describe the sa
 				
 					Gizmos.color = AstarColor.MeshEdgeColor;
 				} else {
-					Gizmos.color = Color.red;
+					Gizmos.color = AstarColor.UnwalkableNode;
 				}
 				Gizmos.DrawLine ((Vector3)vertices[node.v0],(Vector3)vertices[node.v1]);
 				Gizmos.DrawLine ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2]);
@@ -775,10 +750,9 @@ and have a low memory footprint because of their smaller size to describe the sa
 			
 		}
 		
-		public override void DeserializeExtraInfo (GraphSerializationContext ctx)
-		{
+		public override void DeserializeExtraInfo (GraphSerializationContext ctx) {
 			
-			uint graphIndex = (uint)active.astarData.GetGraphIndex(this);
+			uint graphIndex = (uint)ctx.graphIndex;
 			TriangleMeshNode.SetNavmeshHolder ((int)graphIndex,this);
 			
 			int c1 = ctx.reader.ReadInt32();
@@ -804,13 +778,11 @@ and have a low memory footprint because of their smaller size to describe the sa
 				nodes[i] = new TriangleMeshNode(active);
 				TriangleMeshNode node = nodes[i];
 				node.DeserializeNode(ctx);
-				node.GraphIndex = graphIndex;
 				node.UpdatePositionFromVertices();
 			}
 		}
 		
-		public override void SerializeExtraInfo (GraphSerializationContext ctx)
-		{
+		public override void SerializeExtraInfo (GraphSerializationContext ctx) {
 			if (nodes == null || originalVertices == null || _vertices == null || originalVertices.Length != _vertices.Length) {
 				ctx.writer.Write (-1);
 				ctx.writer.Write (-1);
@@ -833,40 +805,31 @@ and have a low memory footprint because of their smaller size to describe the sa
 				nodes[i].SerializeNode (ctx);
 			}
 		}
-		
-		public static void DeserializeMeshNodes (NavMeshGraph graph, GraphNode[] nodes, byte[] bytes) {
-			
-			System.IO.MemoryStream mem = new System.IO.MemoryStream(bytes);
-			System.IO.BinaryReader stream = new System.IO.BinaryReader(mem);
-			
-			for (int i=0;i<nodes.Length;i++) {
-				TriangleMeshNode node = nodes[i] as TriangleMeshNode;
-				
-				if (node == null) {
-					Debug.LogError ("Serialization Error : Couldn't cast the node to the appropriate type - NavMeshGenerator");
-					return;
-				}
-				
-				node.v0 = stream.ReadInt32 ();
-				node.v1 = stream.ReadInt32 ();
-				node.v2 = stream.ReadInt32 ();
-				
-			}
-			
-			int numVertices = stream.ReadInt32 ();
-			
-			graph.vertices = new Int3[numVertices];
-			
-			for (int i=0;i<numVertices;i++) {
-				int x = stream.ReadInt32 ();
-				int y = stream.ReadInt32 ();
-				int z = stream.ReadInt32 ();
-				
-				graph.vertices[i] = new Int3 (x,y,z);
-			}
-			
-			RebuildBBTree (graph);
-		}
 
+#if ASTAR_NO_JSON
+
+		public override void SerializeSettings ( GraphSerializationContext ctx ) {
+			base.SerializeSettings (ctx);
+
+			ctx.SerializeUnityObject ( sourceMesh );
+
+			ctx.SerializeVector3 (offset);
+			ctx.SerializeVector3 (rotation);
+
+			ctx.writer.Write(scale);
+			ctx.writer.Write(accurateNearestNode);
+		}
+		
+		public override void DeserializeSettings ( GraphSerializationContext ctx ) {
+			base.DeserializeSettings (ctx);
+			
+			sourceMesh = ctx.DeserializeUnityObject () as Mesh;
+
+			offset = ctx.DeserializeVector3 ();
+			rotation = ctx.DeserializeVector3 ();
+			scale = ctx.reader.ReadSingle();
+			accurateNearestNode = ctx.reader.ReadBoolean();
+		}
+#endif
 	}
 }

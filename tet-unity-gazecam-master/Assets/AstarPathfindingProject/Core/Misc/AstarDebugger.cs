@@ -96,13 +96,11 @@ public class AstarDebugger : MonoBehaviour {
 		useGUILayout = false;
 		
 		fpsDrops = new float[fpsDropCounterSize];
-		
-		if (camera != null) {
-			cam = camera;
-		} else {
+
+		cam = GetComponent<Camera>();
+		if (cam == null) {
 			cam = Camera.main;
 		}
-		
 		
 		graph = new GraphPoint[graphBufferSize];
 		

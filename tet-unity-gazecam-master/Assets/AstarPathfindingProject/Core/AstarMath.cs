@@ -116,7 +116,7 @@ namespace Pathfinding {
 	    {
 	    	Vector3 lineDirection = lineEnd-lineStart;
 	    	float magn = lineDirection.magnitude;
-			lineDirection /= magn;
+			lineDirection = magn > float.Epsilon ? lineDirection/magn : Vector3.zero;
 	        
 	        float closestPoint = Vector3.Dot((point-lineStart),lineDirection); //Vector3.Dot(lineDirection,lineDirection);
 	        return closestPoint / magn;
@@ -131,7 +131,9 @@ namespace Pathfinding {
 	    	Int3 lineDirection = lineEnd-lineStart;
 	    	float magn = lineDirection.sqrMagnitude;
 	        
-	        float closestPoint = Int3.Dot((point-lineStart),lineDirection) / magn; //Vector3.Dot(lineDirection,lineDirection);
+	        float closestPoint = Int3.Dot((point-lineStart),lineDirection); //Vector3.Dot(lineDirection,lineDirection);
+	        if (magn != 0) closestPoint /= magn;
+
 			return closestPoint;
 	        //return closestPoint / magn;
 	    }
@@ -145,7 +147,9 @@ namespace Pathfinding {
 	    	Int2 lineDirection = lineEnd-lineStart;
 	    	double magn = lineDirection.sqrMagnitudeLong;
 	        
-	        double closestPoint = Int2.DotLong(point-lineStart,lineDirection) / magn; //Vector3.Dot(lineDirection,lineDirection);
+	        double closestPoint = Int2.DotLong(point-lineStart,lineDirection); //Vector3.Dot(lineDirection,lineDirection);
+	        if (magn != 0) closestPoint /= magn;
+
 			return (float)closestPoint;
 	        //return closestPoint / magn;
 	    }
@@ -157,7 +161,7 @@ namespace Pathfinding {
 	    {
 	        Vector3 fullDirection = lineEnd-lineStart;
 			float magn = fullDirection.magnitude;
-	        Vector3 lineDirection = fullDirection/magn;
+	        Vector3 lineDirection = magn > float.Epsilon ? fullDirection/magn : Vector3.zero;
 	        
 	        float closestPoint = Vector3.Dot((point-lineStart),lineDirection); //WASTE OF CPU POWER - This is always ONE -- Vector3.Dot(lineDirection,lineDirection);
 	        return lineStart+(Mathf.Clamp(closestPoint,0.0f,magn)*lineDirection);
@@ -173,7 +177,8 @@ namespace Pathfinding {
 	        Vector3 fullDirection = lineEnd-lineStart;
 			Vector3 fullDirection2 = fullDirection;
 			fullDirection2.y = 0;
-	        Vector3 lineDirection = Vector3.Normalize(fullDirection2);
+			float magn = fullDirection2.magnitude;
+	        Vector3 lineDirection = magn > float.Epsilon ? fullDirection2/magn : Vector3.zero;
 	        //lineDirection.y = 0;
 			
 	        float closestPoint = Vector3.Dot((point-lineStart),lineDirection); //WASTE OF CPU POWER - This is always ONE -- Vector3.Dot(lineDirection,lineDirection);
@@ -347,14 +352,16 @@ namespace Pathfinding {
 		}
 		
 		/** Returns bit number \a b from int \a a. The bit number is zero based. Relevant \a b values are from 0 to 31\n
-		  * Equals to (a >> b) & 1 */
-		public static int Bit (int a, int b) {
+		 * Equals to (a >> b) & 1
+		 */
+		static int Bit (int a, int b) {
 			return (a >> b) & 1;
 			//return (a & (1 << b)) >> b; //Original code, one extra shift operation required
 		}
 		
 		/** Returns a nice color from int \a i with alpha \a a. Got code from the open-source Recast project, works really good\n
-		  * Seems like there are only 64 possible colors from studying the code*/
+		 * Seems like there are only 64 possible colors from studying the code
+		 */
 		public static Color IntToColor (int i, float a) {
 			int	r = Bit(i, 1) + Bit(i, 3) * 2 + 1;
 			int	g = Bit(i, 2) + Bit(i, 4) * 2 + 1;
@@ -642,7 +649,8 @@ namespace Pathfinding {
 		}
 		
 		/** Returns if the two line segments intersects. The lines are NOT treated as infinite (just for clarification)
-		  * \see IntersectionPoint */
+		  * \see IntersectionPoint
+		  */
 		public static bool Intersects (Vector3 start1, Vector3 end1, Vector3 start2, Vector3 end2) {
 			
 			Vector3 dir1 = end1-start1;
@@ -662,11 +670,8 @@ namespace Pathfinding {
 			if (u < 0F || u > 1F || u2 < 0F || u2 > 1F) {
 				return false;
 			}
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			return true;
-			//Vector2 intersection = start1 + dir1*u;
-			//return intersection;
 		}
 		
 		/** Intersection point between two infinite lines.
@@ -717,10 +722,6 @@ namespace Pathfinding {
 			Int3 dir1 = end1-start1;
 			Int3 dir2 = end2-start2;
 			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
 			long den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
 			if (den == 0) {
@@ -747,9 +748,6 @@ namespace Pathfinding {
 			//factor1 = (float)nom/den;
 			//factor2 = (float)nom2/den;
 			return true;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
 		}
 			
 		/** Returns the intersection factors for line 1 and line 2. The intersection factors is a distance along the line \a start - \a end where the other line intersects it.\n
@@ -763,11 +761,7 @@ namespace Pathfinding {
 			
 			Int3 dir1 = end1-start1;
 			Int3 dir2 = end2-start2;
-			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
+
 			long den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
 			if (den == 0) {
@@ -781,9 +775,7 @@ namespace Pathfinding {
 			
 			factor1 = (float)nom/den;
 			factor2 = (float)nom2/den;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			return true;
 		}
 		
@@ -798,10 +790,6 @@ namespace Pathfinding {
 			
 			Vector3 dir1 = end1-start1;
 			Vector3 dir2 = end2-start2;
-			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
 			
 			float den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
@@ -819,9 +807,7 @@ namespace Pathfinding {
 			
 			factor1 = u;
 			factor2 = u2;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			return true;
 		}
 
@@ -847,8 +833,7 @@ namespace Pathfinding {
 			
 			int nom = dir2.x*(start1.z-start2.z)- dir2.z*(start1.x-start2.x);
 			int nom2 = dir1.x*(start1.z-start2.z) - dir1.z * (start1.x - start2.x);
-			
-			//if ((nom2 < 0) ^ (den < 0) && nom2 != 0) return float.NaN;
+
 			if ((float)nom2/den < 0) {
 				return float.NaN;
 			}
@@ -865,10 +850,6 @@ namespace Pathfinding {
 			Vector3 dir1 = end1-start1;
 			Vector3 dir2 = end2-start2;
 			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
 			float den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
 			if (den == 0) {
@@ -878,9 +859,7 @@ namespace Pathfinding {
 			float nom = dir2.x*(start1.z-start2.z)- dir2.z*(start1.x-start2.x);
 			
 			float u = nom/den;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			return u;
 		}
 		
@@ -896,10 +875,6 @@ namespace Pathfinding {
 			Vector3 dir1 = end1-start1;
 			Vector3 dir2 = end2-start2;
 			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
 			float den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
 			if (den == 0) {
@@ -910,9 +885,7 @@ namespace Pathfinding {
 			float nom = dir2.x*(start1.z-start2.z)- dir2.z*(start1.x-start2.x);
 			
 			float u = nom/den;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			intersects = true;
 			return start1 + dir1*u;
 		}
@@ -929,10 +902,6 @@ namespace Pathfinding {
 			Vector2 dir1 = end1-start1;
 			Vector2 dir2 = end2-start2;
 			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
 			float den = dir2.y*dir1.x - dir2.x * dir1.y;
 			
 			if (den == 0) {
@@ -943,9 +912,7 @@ namespace Pathfinding {
 			float nom = dir2.x*(start1.y-start2.y)- dir2.y*(start1.x-start2.x);
 			
 			float u = nom/den;
-			
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
+
 			intersects = true;
 			return start1 + dir1*u;
 		}
@@ -956,11 +923,7 @@ namespace Pathfinding {
 			
 			Vector3 dir1 = end1-start1;
 			Vector3 dir2 = end2-start2;
-			
-			//Color rnd = new Color (Random.value,Random.value,Random.value);
-			//Debug.DrawRay (start1,dir1,rnd);
-			//Debug.DrawRay (start2,dir2,rnd);
-			
+
 			float den = dir2.z*dir1.x - dir2.x * dir1.z;
 			
 			if (den == 0) {
@@ -978,9 +941,6 @@ namespace Pathfinding {
 				return start1;
 			}
 		
-			//Debug.Log ("U1 "+u.ToString ("0.00")+" U2 "+u2.ToString ("0.00")+"\nP1: "+(start1 + dir1*u)+"\nP2: "+(start2 + dir2*u2)+"\nStart1: "+start1+"  End1: "+end1);
-			//Debug.DrawLine (start2,end2,Color.magenta);
-			//Debug.DrawRay (start1,dir1*5,Color.green);
 			intersects = true;
 			return start1 + dir1*u;
 		}
@@ -1031,9 +991,6 @@ namespace Pathfinding {
 		 */
 		public static bool LineIntersectsBounds (Bounds bounds, Vector3 a, Vector3 b) {	
 			// Put line in box space
-			//CMatrix MInv = m_M.InvertSimple();
-			//CVec3 LB1 = MInv * L1;
-			//CVec3 LB2 = MInv * L2;
 			a -= bounds.center;
 			b -= bounds.center;
 			
@@ -1056,27 +1013,6 @@ namespace Pathfinding {
 			// No separating axis, the line intersects
 			return true;
 		}
-		
-	/*
-		public static Vector3[] WeightedSubdivide (Vector3[] path, int subdivisions) {
-			
-			Vector3[] path2 = new Vector3[(path.Length-1)*(int)Mathf.Pow (2,subdivisions)+1];
-			
-			int c = 0;
-			for (int p=0;p<path.Length-1;p++) {
-				float step = 1.0F/Mathf.Pow (2,subdivisions);
-				
-				for (float i=0;i<1.0F;i+=step) {
-					path2[c] = Vector3.Lerp (path[p],path[p+1],Mathfx.Hermite (0F,1F,i));//Mathf.SmoothStep (0,1, i));
-					c++;
-				}
-			}
-			
-			//Debug.Log (path2.Length +" "+c);
-			
-			path2[c] = path[path.Length-1];
-			return path2;
-		}*/
 	
 		/** Subdivides \a path and returns the new array with interpolated values.
 		 * The returned array is \a path subdivided \a subdivisions times, the resulting points are interpolated using Mathf.SmoothStep.\n
@@ -1100,9 +1036,7 @@ namespace Pathfinding {
 					c++;
 				}
 			}
-			
-			//Debug.Log (path2.Length +" "+c);
-			
+
 			path2[c] = path[path.Length-1];
 			return path2;
 		}

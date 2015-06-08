@@ -1,5 +1,4 @@
-#define ASTAR_MORE_AREAS // Increases the number of areas to 65535 but reduces the maximum number of graphs to 4. Disabling gives a max number of areas of 1023 and 32 graphs.
-//#define ASTAR_NO_PENALTY // Enabling this disables the use of penalties. Reduces memory usage.
+#define ASTAR_CONSTANT_PENALTY
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +7,6 @@ using Pathfinding.Nodes;
 using Pathfinding.Serialization;
 
 namespace Pathfinding.Nodes {
-	//class A{}
 }
 
 namespace Pathfinding {
@@ -46,8 +44,7 @@ namespace Pathfinding {
 		
 		/** Constructor for a graph node. */
 		public GraphNode (AstarPath astar) {
-			//this.nodeIndex = NextNodeIndex++;
-			if (astar != null) {
+			if (!System.Object.ReferenceEquals (astar, null)) {
 				this.nodeIndex = astar.GetNewNodeIndex();
 				astar.InitializeNode (this);
 			} else {
@@ -60,13 +57,15 @@ namespace Pathfinding {
 		 * The graph is responsible for calling this method on nodes when they are destroyed, including when the whole graph is destoyed.
 		 * Otherwise memory leaks might present themselves.
 		 * 
-		 * Once called, subsequent calls to this method will not do anything.
+		 * Once called the #Destroyed property will return true and subsequent calls to this method will not do anything.
 		 * 
 		 * \note Assumes the current active AstarPath instance is the same one that created this node.
+		 * 
+		 * \warning Should only be called by graph classes on their own nodes
 		 */
 		public void Destroy () {
 			//Already destroyed
-			if (nodeIndex == -1) return;
+			if (Destroyed) return;
 			
 			ClearConnections(true);
 			
@@ -74,18 +73,13 @@ namespace Pathfinding {
 				AstarPath.active.DestroyNode(this);
 			}
 			nodeIndex = -1;
-			//System.Console.WriteLine ("~");
 		}
-		
+
 		public bool Destroyed {
 			get {
 				return nodeIndex == -1;
 			}
 		}
-		
-		//~GraphNode () {
-			//Debug.Log ("Destroyed GraphNode " + nodeIndex);
-		//}
 		
 		public int NodeIndex { get {return nodeIndex;}}
 		
@@ -96,19 +90,20 @@ namespace Pathfinding {
 		const int FlagsWalkableOffset = 0;
 		/** Mask of the walkable bit. \see Walkable */
 		const uint FlagsWalkableMask = 1 << FlagsWalkableOffset;
-		
+
 		/** Start of region bits. \see Area */
 		const int FlagsAreaOffset = 1;
 		/** Mask of region bits. \see Area */
-		const uint FlagsAreaMask = (1024-1) << FlagsAreaOffset;
+		const uint FlagsAreaMask = (131072-1) << FlagsAreaOffset;
 		
 		/** Start of graph index bits. \see GraphIndex */
-		const int FlagsGraphOffset = 11;
+		const int FlagsGraphOffset = 24;
 		/** Mask of graph index bits. \see GraphIndex */
-		const uint FlagsGraphMask = (32-1) << FlagsGraphOffset;
-		public const uint MaxRegionCount = FlagsAreaMask >> FlagsAreaOffset;
-		/** Max number of graphs */
-		public const uint MaxGraphCount = FlagsGraphMask >> FlagsGraphOffset;
+		const uint FlagsGraphMask = (256u-1) << FlagsGraphOffset;
+
+		public const uint MaxAreaIndex = FlagsAreaMask >> FlagsAreaOffset;
+		/** Max number of graphs-1 */
+		public const uint MaxGraphIndex = FlagsGraphMask >> FlagsGraphOffset;
 		
 		/** Start of tag bits. \see Tag */
 		const int FlagsTagOffset = 19;
@@ -137,7 +132,7 @@ namespace Pathfinding {
 				return penalty;
 			}
 			set {
-				if (value > 0xFFFFF)
+				if (value > 0xFFFFFF)
 					Debug.LogWarning ("Very high penalty applied. Are you sure negative values haven't underflowed?\n" +
 						"Penalty values this high could with long paths cause overflows and in some cases infinity loops because of that.\n" +
 						"Penalty value applied: "+value);
@@ -160,11 +155,10 @@ namespace Pathfinding {
 				return (flags & FlagsAreaMask) >> FlagsAreaOffset;
 			}
 			set {
-				//Awesome! No parentheses
-				flags = flags & ~FlagsAreaMask | value << FlagsAreaOffset;
+				flags = (flags & ~FlagsAreaMask) | (value << FlagsAreaOffset);
 			}
 		}
-		
+
 		public uint GraphIndex {
 			get {
 				return (flags & FlagsGraphMask) >> FlagsGraphOffset;
@@ -186,7 +180,7 @@ namespace Pathfinding {
 #endregion
 		
 		public void UpdateG (Path path, PathNode pathNode) {
-			pathNode.G = pathNode.parent.G + pathNode.cost + path.GetTraversalCost(this);
+			pathNode.G = pathNode.parent.G + pathNode.cost;
 		}
 		
 		public virtual void UpdateRecursiveG (Path path, PathNode pathNode, PathHandler handler) {
@@ -279,6 +273,9 @@ namespace Pathfinding {
 		public virtual void DeserializeNode (GraphSerializationContext ctx) {
 			Penalty = ctx.reader.ReadUInt32();
 			Flags = ctx.reader.ReadUInt32();
+
+			// Set the correct graph index (which might have changed, e.g if loading additively)
+			GraphIndex = (uint)ctx.graphIndex;
 		}
 		
 		/** Used to serialize references to other nodes e.g connections.
@@ -320,6 +317,7 @@ namespace Pathfinding {
 		public abstract Vector3 ClosestPointOnNodeXZ (Vector3 p);
 		
 		public override void ClearConnections (bool alsoReverse) {
+			// Remove all connections to this node from our neighbours
 			if (alsoReverse && connections != null) {
 				for (int i=0;i<connections.Length;i++) {
 					connections[i].RemoveConnection (this);
@@ -329,7 +327,7 @@ namespace Pathfinding {
 			connections = null;
 			connectionCosts = null;
 		}
-		
+
 		public override void GetConnections (GraphNodeDelegate del) {
 			if (connections == null) return;
 			for (int i=0;i<connections.Length;i++) del (connections[i]);
@@ -338,7 +336,9 @@ namespace Pathfinding {
 		public override void FloodFill (Stack<GraphNode> stack, uint region) {
 			//Faster, more specialized implementation to override the slow default implementation
 			if (connections == null) return;
-			
+
+			// Iterate through all connections, set the area and push the neighbour to the stack
+			// This is a simple DFS (https://en.wikipedia.org/wiki/Depth-first_search)
 			for (int i=0;i<connections.Length;i++) {
 				GraphNode other = connections[i];
 				if (other.Area != region) {
@@ -353,8 +353,7 @@ namespace Pathfinding {
 			return false;
 		}
 		
-		public override void UpdateRecursiveG (Path path, PathNode pathNode, PathHandler handler)
-		{
+		public override void UpdateRecursiveG (Path path, PathNode pathNode, PathHandler handler) {
 			UpdateG (path,pathNode);
 			
 			handler.PushNode (pathNode);
@@ -376,16 +375,19 @@ namespace Pathfinding {
 		 * to get a two-way connection.
 		 */
 		public override void AddConnection (GraphNode node, uint cost) {
-			
+
+			// Check if we already have a connection to the node
 			if (connections != null) { 
 				for (int i=0;i<connections.Length;i++) {
 					if (connections[i] == node) {
+						// Just update the cost for the existing connection
 						connectionCosts[i] = cost;
 						return;
 					}
 				}
 			}
-			
+
+			// Create new arrays which include the new connection
 			int connLength = connections != null ? connections.Length : 0;
 			
 			GraphNode[] newconns = new GraphNode[connLength+1];
@@ -412,10 +414,12 @@ namespace Pathfinding {
 		public override void RemoveConnection (GraphNode node) {
 			
 			if (connections == null) return;
-			
+
+			// Iterate through all connections and check if there are any to the node
 			for (int i=0;i<connections.Length;i++) {
 				if (connections[i] == node) {
-					
+
+					// Create new arrays which have the specified node removed
 					int connLength = connections.Length;
 			
 					GraphNode[] newconns = new GraphNode[connLength-1];
@@ -436,10 +440,12 @@ namespace Pathfinding {
 			}
 		}
 		
-		/** Checks if \a p is inside the node
+		/** Checks if \a p is inside the node in XZ space
 		 * 
 		 * The default implementation uses XZ space and is in large part got from the website linked below
 		 * \author http://unifycommunity.com/wiki/index.php?title=PolyContainsPoint (Eric5h5)
+		 * 
+		 * The TriangleMeshNode overrides this and implements faster code for that case.
 		 */
 		public virtual bool ContainsPoint (Int3 p) {
 			bool inside = false;
@@ -453,8 +459,7 @@ namespace Pathfinding {
 			return inside; 
 		}
 		
-		public override void SerializeReferences (GraphSerializationContext ctx)
-		{
+		public override void SerializeReferences (GraphSerializationContext ctx) {
 			if (connections == null) {
 				ctx.writer.Write(-1);
 			} else {
@@ -466,8 +471,7 @@ namespace Pathfinding {
 			}
 		}
 		
-		public override void DeserializeReferences (GraphSerializationContext ctx)
-		{
+		public override void DeserializeReferences (GraphSerializationContext ctx) {
 			int count = ctx.reader.ReadInt32();
 			if (count == -1) {
 				connections = null;
