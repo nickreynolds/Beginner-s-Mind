@@ -23,6 +23,6 @@ public class SetPathWhenControlled : MonoBehaviour {
 		gameObject.GetComponent<SimplePathFollower>().path = path;
 		gameObject.GetComponent<SimplePathFollower>().repeatPath = shouldRepeathPath;
 		gameObject.GetComponent<SimplePathFollower>().doStart();
-		animation.Play("walk");
+//		animation.Play("walk");
 	}
 }
